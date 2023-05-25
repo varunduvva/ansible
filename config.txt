@@ -6,14 +6,23 @@ Host bastionNSO
 	ControlPersist yes
 	
 Host HAproxy
-	ProxyJump bastionNSO
-
-Host devA devB devC
-	ProxyJump bastionNSO
 	HostName <ip_address>
+	ProxyCommand ssh -W %h:%p bastionNSO
+
+Host devA
+	HostName <ip_address>
+	ProxyCommand ssh -W %h:%p bastionNSO
+
+Host devB
+	HostName <ip_address>
+	ProxyCommand ssh -W %h:%p bastionNSO
+
+Host devC
+	HostName <ip_address>
+	ProxyCommand ssh -W %h:%p bastionNSO
 
 Host *
-	User ubuntu
+	user ubuntu
 	IdentityFile ~/.ssh/id_rsa
 	StrictHostKeyChecking no
 	PasswordAuthentication no
