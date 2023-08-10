@@ -1,124 +1,140 @@
-
 ---
-- become: yes
-  hosts: webservers 
+
+- hosts: all
   gather_facts: yes
+
+- name: Configuring HAproxy loadbalancer
+  hosts: HAproxy
+  become: yes
+  vars:
+      ui_pass: "{{ lookup('file', './uipassword') }}"
+  tasks:
+
     
-- hosts: HAproxy
-  gather_facts: yes
-  become: yes
-  become_method: sudo
-  
-  tasks:
-  
-  - name: "update apt cache"
-    become: yes
-    apt:
-        update_cache: true
-        
-  - name: "install HAproxy"
-    apt:
+    
+    - name : sudo wait
+      become: yes
+      shell: while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 5; done;
+
+    - name: Installing HAproxy
+      apt:
         name: haproxy
-        state: latest
-        
-  - name: delete previous haproxy configuration 
-    file:
-       path: "/etc/haproxy/haproxy.cfg"
-       state: absent
-
-  - name: "Deploy new HAproxy"
-    template:
-         src: "./haproxy.cfg.j2"
-         dest: "/etc/haproxy/haproxy.cfg"        
-    notify: "Start HAproxy"
-  
-  - name: "restarting HAproxy"
-    service:
-         name: haproxy
-         state: restarted
-         enabled: yes  
-             
-  - name: "installing Nginx"
-    apt:
-        name: nginx
-        state: latest
-
-  - name: "Configuring UDP loadbalancing"  
-    template:
-         src: "./nginx.j2"
-         dest: "/etc/nginx/nginx.conf"
-         
-  - name: "restarting nginx"
-    service:
-         name: nginx
-         state: restarted
-         
-  handlers:
-  - name: "Start HAproxy"
-    service:
-         name: haproxy
-         state: restarted
-         
-         
-- hosts: webservers
-  become: yes
-  become_method: sudo
-  gather_facts: yes
-  
-  tasks:
-  
-  
-  - name: "update cache"
-    apt:
-        update_cache: true
-
-  - name: "install pip3"
-    apt:
-        name: python3-pip
         state: present
         update_cache: true
-        
-  - name: install flask
-    pip: 
-      executable: pip3
-      name: flask
-      state: latest
-    
-  - name: fetch application
-    copy: src=application2.py dest=./application2.py 
-    
-  - name: "install gunicorn"
-    apt:
-        name: gunicorn
+      
 
-  - name: "install flask"
-    apt:
-        name: python3-flask
-        
-  - name: "install snmpd"
-    apt:
-        name: snmpd
+    - name: gather server ip addresses
+      setup:
+            filter: ansible_default_ipv4.address     
+         
+    
+    - name: copy files haproxy.cfg
+      template:
+        src: haproxy.cfg.j2
+        dest: "/etc/haproxy/haproxy.cfg"
+      notify:
+        - restart haproxy
+
+    - name: install nginx, snmp, snmp-mibs-downloader
+      apt: 
+        update_cache: yes
+        name: [ 'nginx', 'snmp', 'snmp-mibs-downloader' ] 
         state: latest
-        
-  - name: "Configuring snmpd" 
-    template:
-         src: "./snmpd.conf"
-         dest: "/etc/snmp/snmpd.conf"
-    
-  - name: "restarting snmpd"
-    service:
-         name: snmpd
-         state: restarted
-         enabled: yes
+      
 
-  - name: "copying Application2.py"
-    copy:
-        src: application2.py
-        dest: /home/ubuntu/application2.py
+    - name: copy snmp conf file
+      template:
+            src: snmp.conf
+            dest: "/etc/snmp/snmp.conf"
+    - name: copy nginx config files
+      template:
+         src: nginx.conf.j2
+         dest: "/etc/nginx/nginx.conf"
+    - name: nginx start
+      service:
+        name: nginx
+        state: restarted
+
+  handlers:
+
+    - name: restart haproxy
+      service:
+       name: haproxy
+       state: restarted
+
+- hosts: webservers
+  become: yes
+  tasks:
+    - name: install pip
+      apt:
+        name: python3-pip
+        state: present
+    
+    - name: install flask
+      pip:
+        executable: pip3
+        name: flask
+        state: latest
+    - name: install gunicorn
+      pip:
+        executable: pip3
+        name: gunicorn
+        state: latest
+
+    - name: createnew directory
+      file:
+              path: "/home/flask-app/"
+              state: directory
+    - name: copy app.py to webservers
+      template:
+        src: "application2.py"
+        dest: "/home/flask-app/app.py"
+
+
+    - name: start flask app
+      shell: |
+        cd /home/flask-app/
+        gunicorn --bind 0.0.0.0:80 app:app&  
+
+    - name: install snmpd
+      apt:
+              name: snmpd
+              state: latest
+    
+    - name: cpy snmpd conf file
+      template:
+              src: snmpd.conf.j2
+              dest: "/etc/snmp/snmpd.conf"
+    - name: run snmpd
+      service:
+              name: snmpd
+              state: restarted    
+
+
+- hosts: HAproxy
+  become: yes
+  tasks: 
         
-  - name: "Running Flask app"
-    shell: gunicorn -w 2 -D -b 0.0.0.0:8080 application2:app
-    
-    
-    
-    
+        - name: test HAproxy 1
+          uri:
+                  url: "http://localhost/"
+                  return_content:  yes
+          register: html_content
+        - debug: 
+            msg: "{{ html_content.content }}"
+
+        - name: test HAproxy 2
+          uri:
+                  url: "http://localhost/"
+                  return_content:  yes
+          register: html_content
+        - debug:
+            msg: "{{ html_content.content }}"
+
+        - name: test HAproxy 3
+          uri:
+                  url: "http://localhost/"
+                  return_content:  yes
+          register: html_content
+        - debug:
+            msg: "{{ html_content.content }}"
