@@ -1,37 +1,47 @@
-Host bastionET2598
-    User ubuntu
-    Hostname ip_address_bastionET2598
-    IdentityFile ~/.ssh/id_rsa
-    StrictHostKeyChecking no
-    PasswordAuthentication no
-   
+Host bastion
+        User ubuntu
+        HostName 103.57.74.244
+        IdentityFile /home/varunduvva/.ssh/id_rsa
+        ForwardAgent yes
+        UserKnownHostsFile ~/dev/null
+        StrictHostKeyChecking no
+        PasswordAuthentication no
+        #ControlMaster auto
+        #ControlPersist 5m
+
+
 Host HAproxy
-    User ubuntu
-    Hostname ip_address_HAproxy
-    IdentityFile ~/.ssh/id_rsa
-    StrictHostKeyChecking no
-    PasswordAuthentication no
-    
+        User ubuntu
+        HostName 188.95.226.151
+        IdentityFile /home/varunduvva/.ssh/id_rsa
+        UserKnownHostsFile=~/dev/null
+        StrictHostKeyChecking no
+        PasswordAuthentication no
+        ProxyCommand ssh -W %h:%p bastion
+
 Host devA
-    User ubuntu
-    Hostname ip_address_devA
-    IdentityFile ~/.ssh/id_rsa
-    ProxyJump bastionET2598
-    StrictHostKeyChecking no
-    PasswordAuthentication no
-    
+        User ubuntu
+        HostName 10.1.0.38
+        IdentityFile /home/varunduvva/.ssh/id_rsa
+        UserKnownHostsFile=~/dev/null
+        StrictHostKeyChecking no
+        PasswordAuthentication no
+        ProxyCommand ssh -W %h:%p bastion
+
 Host devB
-    User ubuntu
-    Hostname ip_address_devB
-    IdentityFile ~/.ssh/id_rsa
-    ProxyJump bastionET2598
-    StrictHostKeyChecking no
-    PasswordAuthentication no
-    
+        User ubuntu
+        HostName 10.1.0.36
+        IdentityFile /home/varunduvva/.ssh/id_rsa
+        UserKnownHostsFile=~/dev/null
+        StrictHostKeyChecking no
+        PasswordAuthentication no
+        ProxyCommand ssh -W %h:%p bastion
+
 Host devC
-    User ubuntu
-    Hostname ip_address_devC
-    IdentityFile ~/.ssh/id_rsa
-    ProxyJump bastionET2598
-    StrictHostKeyChecking no
-    PasswordAuthentication no
+        user ubuntu
+        HostName 10.1.0.138
+        IdentityFile /home/varunduvva/.ssh/id_rsa
+        UserKnownHostsFile=~/dev/null
+        StrictHostKeyChecking no
+        PasswordAuthentication no
+        ProxyCommand ssh -W %h:%p bastion
