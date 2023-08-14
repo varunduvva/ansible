@@ -10,7 +10,10 @@
       ui_pass: "{{ lookup('file', './uipassword') }}"
   tasks:
 
-    
+    tasks:
+    - name: apt update
+      apt:
+        update_cache: true
     
     - name : sudo wait
       become: yes
