@@ -2,6 +2,12 @@
 
 - hosts: all
   gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: apt update
+      apt:
+        update_cache: true
 
 - name: Configuring HAproxy loadbalancer
   hosts: HAproxy
@@ -10,11 +16,7 @@
       ui_pass: "{{ lookup('file', './uipassword') }}"
   tasks:
 
-    tasks:
-    - name: apt update
-      apt:
-        update_cache: true
-    
+
     - name : sudo wait
       become: yes
       shell: while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 5; done;
@@ -24,13 +26,13 @@
         name: haproxy
         state: present
         update_cache: true
-      
+
 
     - name: gather server ip addresses
       setup:
-            filter: ansible_default_ipv4.address     
-         
-    
+            filter: ansible_default_ipv4.address
+
+
     - name: copy files haproxy.cfg
       template:
         src: haproxy.cfg.j2
@@ -39,11 +41,11 @@
         - restart haproxy
 
     - name: install nginx, snmp, snmp-mibs-downloader
-      apt: 
+      apt:
         update_cache: yes
-        name: [ 'nginx', 'snmp', 'snmp-mibs-downloader' ] 
+        name: [ 'nginx', 'snmp', 'snmp-mibs-downloader' ]
         state: latest
-      
+
 
     - name: copy snmp conf file
       template:
@@ -72,7 +74,7 @@
       apt:
         name: python3-pip
         state: present
-    
+
     - name: install flask
       pip:
         executable: pip3
@@ -97,13 +99,13 @@
     - name: start flask app
       shell: |
         cd /home/flask-app/
-        gunicorn --bind 0.0.0.0:80 app:app&  
+        gunicorn --bind 0.0.0.0:80 app:app&
 
     - name: install snmpd
       apt:
               name: snmpd
               state: latest
-    
+
     - name: cpy snmpd conf file
       template:
               src: snmpd.conf.j2
@@ -111,5 +113,4 @@
     - name: run snmpd
       service:
               name: snmpd
-              state: restarted    
-
+              state: restarted
