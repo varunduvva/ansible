@@ -1,28 +1,25 @@
 ---
-
 - hosts: all
   gather_facts: yes
-  become: yes
+  become: yes 
 
   tasks:
     - name: apt update
       apt:
         update_cache: true
 
-- name: Configuring HAproxy loadbalancer
+
+- name: Configuring the HAproxy loadbalancer
   hosts: HAproxy
   become: yes
   vars:
       ui_pass: "{{ lookup('file', './uipassword') }}"
   tasks:
-
-
-    - name : sudo wait
-      become: yes
-      shell: while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 5; done;
+  
 
     - name: Installing HAproxy
       apt:
+
         name: haproxy
         state: present
         update_cache: true
@@ -37,8 +34,12 @@
       template:
         src: haproxy.cfg.j2
         dest: "/etc/haproxy/haproxy.cfg"
-      notify:
-        - restart haproxy
+
+
+    - name: restart haproxy
+      service:
+         name: haproxy
+         state: restarted
 
     - name: install nginx, snmp, snmp-mibs-downloader
       apt:
@@ -51,40 +52,50 @@
       template:
             src: snmp.conf
             dest: "/etc/snmp/snmp.conf"
+
     - name: copy nginx config files
       template:
          src: nginx.conf.j2
          dest: "/etc/nginx/nginx.conf"
+
     - name: nginx start
       service:
         name: nginx
         state: restarted
 
-  handlers:
 
-    - name: restart haproxy
-      service:
-       name: haproxy
-       state: restarted
 
 - hosts: webservers
   become: yes
   tasks:
-    - name: install pip
+
+    - name: Create Flask App Directory
+      file:
+        path: "/home/flask-app/"
+        state: directory
+       
+    - name: Copy app.py to webservers
+      template:
+        src: application.py
+        dest: "/home/flask-app/app.py"
+
+    - name: Install pip
       apt:
         name: python3-pip
-        state: present
+        state: latest
 
-    - name: install flask
-      pip:
-        executable: pip3
-        name: flask
+    - name: Install Python3
+      apt:
+        name: python3
         state: latest
-    - name: install gunicorn
+
+    - name: Install Flask and Gunicorn
       pip:
-        executable: pip3
-        name: gunicorn
+        name: 
+          - flask
+          - gunicorn
         state: latest
+        executable: pip3
 
     - name: Create Flask App Systemd Service
       template:
@@ -101,19 +112,27 @@
         state: started
         enabled: yes
 
-    - name: install snmpd
+    - name: Install snmpd
       apt:
-              name: snmpd
-              state: latest
+        name: snmpd
+        state: latest
 
-    - name: cpy snmpd conf file
+    - name: Copy snmpd conf file
       template:
-              src: snmpd.conf.j2
-              dest: "/etc/snmp/snmpd.conf"
-    - name: run snmpd
+        src: snmpd.conf.j2
+        dest: "/etc/snmp/snmpd.conf"
+
+    - name: Run snmpd
       service:
-              name: snmpd
-              state: restarted
+        name: snmpd
+        state: restarted
+
+        #- name: start flask app
+        #shell: |
+        #export FLASK_APP=/home/flask-app/app.py
+        #export FLASK_ENV=production
+        #flask run --host=0.0.0.0 --port=80 &
+
 
 - hosts: HAproxy
   become: yes
