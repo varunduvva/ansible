@@ -1,25 +1,28 @@
 ---
+
 - hosts: all
   gather_facts: yes
-  become: yes 
+  become: yes
 
   tasks:
     - name: apt update
       apt:
         update_cache: true
 
-
-- name: Configuring the HAproxy loadbalancer
+- name: Configuring HAproxy loadbalancer
   hosts: HAproxy
   become: yes
   vars:
       ui_pass: "{{ lookup('file', './uipassword') }}"
   tasks:
-  
+
+
+    - name : sudo wait
+      become: yes
+      shell: while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 5; done;
 
     - name: Installing HAproxy
       apt:
-
         name: haproxy
         state: present
         update_cache: true
@@ -34,12 +37,8 @@
       template:
         src: haproxy.cfg.j2
         dest: "/etc/haproxy/haproxy.cfg"
-
-
-    - name: restart haproxy
-      service:
-         name: haproxy
-         state: restarted
+      notify:
+        - restart haproxy
 
     - name: install nginx, snmp, snmp-mibs-downloader
       apt:
@@ -52,112 +51,66 @@
       template:
             src: snmp.conf
             dest: "/etc/snmp/snmp.conf"
-
     - name: copy nginx config files
       template:
          src: nginx.conf.j2
          dest: "/etc/nginx/nginx.conf"
-
     - name: nginx start
       service:
         name: nginx
         state: restarted
 
+  handlers:
 
+    - name: restart haproxy
+      service:
+       name: haproxy
+       state: restarted
 
 - hosts: webservers
   become: yes
   tasks:
-
-    - name: Create Flask App Directory
-      file:
-        path: "/home/flask-app/"
-        state: directory
-       
-    - name: Copy app.py to webservers
-      template:
-        src: application.py
-        dest: "/home/flask-app/app.py"
-
-    - name: Install pip
+    - name: install pip
       apt:
         name: python3-pip
-        state: latest
+        state: present
 
-    - name: Install Python3
-      apt:
-        name: python3
-        state: latest
-
-    - name: Install Flask and Gunicorn
+    - name: install flask
       pip:
-        name: 
-          - flask
-          - gunicorn
-        state: latest
         executable: pip3
-
-    - name: Create Flask App Systemd Service
-      template:
-        src: flask_app.service.j2
-        dest: /etc/systemd/system/flask_app.service
-      
-    - name: Reload systemd
-      systemd:
-        daemon_reload: yes
-
-    - name: Start and enable Flask App Service
-      systemd:
-        name: flask_app.service
-        state: started
-        enabled: yes
-
-    - name: Install snmpd
-      apt:
-        name: snmpd
+        name: flask
+        state: latest
+    - name: install gunicorn
+      pip:
+        executable: pip3
+        name: gunicorn
         state: latest
 
-    - name: Copy snmpd conf file
+    - name: createnew directory
+      file:
+              path: "/home/flask-app/"
+              state: directory
+    - name: copy app.py to webservers
       template:
-        src: snmpd.conf.j2
-        dest: "/etc/snmp/snmpd.conf"
+        src: "application2.py"
+        dest: "/home/flask-app/app.py"
 
-    - name: Run snmpd
+
+    - name: start flask app
+      shell: |
+        cd /home/flask-app/
+        gunicorn --bind 0.0.0.0:80 app:app&
+
+    - name: install snmpd
+      apt:
+              name: snmpd
+              state: latest
+
+    - name: cpy snmpd conf file
+      template:
+              src: snmpd.conf.j2
+              dest: "/etc/snmp/snmpd.conf"
+    - name: run snmpd
       service:
-        name: snmpd
-        state: restarted
-
-        #- name: start flask app
-        #shell: |
-        #export FLASK_APP=/home/flask-app/app.py
-        #export FLASK_ENV=production
-        #flask run --host=0.0.0.0 --port=80 &
-
-
-- hosts: HAproxy
-  become: yes
-  tasks: 
-        
-        - name: test HAproxy 1
-          uri:
-                  url: "http://localhost:80/"
-                  return_content:  yes
-          register: html_content
-        - debug: 
-            msg: "{{ html_content.content }}"
-
-        - name: test HAproxy 2
-          uri:
-                  url: "http://localhost:80/"
-                  return_content:  yes
-          register: html_content
-        - debug:
-            msg: "{{ html_content.content }}"
-
-        - name: test HAproxy 3
-          uri:
-                  url: "http://localhost:80/"
-                  return_content:  yes
-          register: html_content
-        - debug:
-            msg: "{{ html_content.content }}"
+              name: snmpd
+              state: restarted
