@@ -1,0 +1,12 @@
+[Unit]
+Description=Flask_App_Service
+
+[Service]
+User=root
+WorkingDirectory=/home/flask-app
+ExecStart=/usr/bin/python3 /home/flask-app/app.py
+RestartSec=3
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
