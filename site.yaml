@@ -86,20 +86,20 @@
         name: gunicorn
         state: latest
 
-    - name: createnew directory
-      file:
-              path: "/home/flask-app/"
-              state: directory
-    - name: copy app.py to webservers
+    - name: Create Flask App Systemd Service
       template:
-        src: "application2.py"
-        dest: "/home/flask-app/app.py"
+        src: flask_app.service.j2
+        dest: /etc/systemd/system/flask_app.service
+      
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
 
-
-    - name: start flask app
-      shell: |
-        cd /home/flask-app/
-        gunicorn --bind 0.0.0.0:80 app:app&
+    - name: Start and enable Flask App Service
+      systemd:
+        name: flask_app.service
+        state: started
+        enabled: yes
 
     - name: install snmpd
       apt:
